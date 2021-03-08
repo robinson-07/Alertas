@@ -1,4 +1,4 @@
-package com.alertas;
+package com.alertas.modelo;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -6,73 +6,70 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
-import android.widget.Toast;
+
+import com.alertas.Principal;
+import com.alertas.R;
 
 import static android.app.Notification.VISIBILITY_PUBLIC;
 import static android.content.Context.NOTIFICATION_SERVICE;
 
-public class disparar_alarma extends BroadcastReceiver {
+public class DispararAlerta extends BroadcastReceiver {
 
     @Override
-    public void onReceive(Context context, Intent intent) {
-        if (intent.getAction().equals("com.alertas.DISPARAR_ALARMA")) {
-            String detalles = intent.getStringExtra("detalles");
-            obtener_detalles(context, detalles);
-        }
-        else if (intent.getAction().equals("com.alertas.DETENER_ALARMA")) {
-            context.stopService(new Intent(context, Ringtone_service.class));
+    public void onReceive(final Context context, Intent intent) {
+        if (intent.getAction().equals("com.alertas.DISPARAR_ALERTA")) {
+            Bundle bundle = intent.getBundleExtra("bundle");
+            if(bundle==null) return;
+            Alerta alerta = (Alerta)bundle.getSerializable("alerta");
+            if(alerta==null) return;
+            reproducir_tono(context, alerta);
+            notificacion(context, alerta);
+
+            new Handler().postDelayed(new Runnable() {
+                public void run() {
+                    actualizarAlerta(context);
+                }
+            }, 1000);
+
+        } else if (intent.getAction().equals("com.alertas.DETENER_ALERTA")) {
+            context.stopService(new Intent(context, RingtoneService.class));
         }
     }
 
-    private void obtener_detalles(Context context, String detalles){
-        String[] partes = detalles.split(",");
-        String time = partes[0];
-        String titulo = partes[1];
-        int timbres = Integer.parseInt(partes[2]);
-        String notificacion = partes[3];
-        String repetir = partes[4];
-        String id_alerta = partes[5];
-
-        notificacion(context, time, titulo, notificacion);
-        reproducir_tono(context, timbres, notificacion);
-
+    private void actualizarAlerta(Context context){
         Intent broadcastIntent = new Intent();
-        broadcastIntent.setAction("com.alertas.ESTABLECER_ALARMA");
-        broadcastIntent.putExtra("repetir", repetir);
-        broadcastIntent.putExtra("id_alerta", id_alerta);
+        broadcastIntent.setAction("com.alertas.ESTABLECER_ALERTA");
         context.sendBroadcast(broadcastIntent);
     }
 
-    private void reproducir_tono(Context context, int numero_timbres, String notificacion){
-        Intent intent = new Intent(context, Ringtone_service.class);
-        intent.putExtra("numero_timbres", numero_timbres);
-        intent.putExtra("notificacion", notificacion);
+    private void reproducir_tono(Context context, Alerta alerta){
+        Intent intent = new Intent(context, RingtoneService.class);
+        Bundle bundle = new Bundle();
+        bundle.putSerializable("alerta", alerta);
+        intent.putExtra("bundle", bundle);
         context.startService(intent);
     }
 
-    public void notificacion(final Context context, String time, String titulo, String notificacion){
+    public void notificacion(final Context context, Alerta alerta){
         int id_notificacion = 1;
-        if(notificacion.equals("true")){
+        if(alerta.isNotificacion()){
             SharedPreferences pref_notificacion = context.getSharedPreferences("notificacion",   Context.MODE_PRIVATE);
             id_notificacion = pref_notificacion.getInt("id_notificacion", 2);
             if(id_notificacion<100){
                 SharedPreferences.Editor editor = pref_notificacion.edit();
                 editor.putInt("id_notificacion", id_notificacion+1);
-                editor.commit();
+                editor.apply();
             }else{
                 pref_notificacion.edit().clear().apply();
             }
-            if(titulo.contains("¬")) {
-                titulo = titulo.replace("¬", ",");
-            }
         }
-
-        Intent mainActivity = new Intent(context, MainActivity.class);
-
+        Intent mainActivity = new Intent(context, Principal.class);
         Intent broadcastIntentDelete = new Intent();
-        broadcastIntentDelete.setAction("com.alertas.DETENER_ALARMA");
+        broadcastIntentDelete.setAction("com.alertas.DETENER_ALERTA");
         LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntentDelete);
 
         PendingIntent pendingMainActivity = PendingIntent.getActivity(context, 0, mainActivity, 0);
@@ -89,8 +86,9 @@ public class disparar_alarma extends BroadcastReceiver {
                 .setVisibility(VISIBILITY_PUBLIC)
                 .setSmallIcon(R.mipmap.icono_app)
                 .setContentTitle("Alerta")
-                .setContentText(time+" - "+titulo)
+                .setContentText(alerta.getTime()+" - "+alerta.getTitulo())
                 .setAutoCancel(true);
         mNotifyMgr.notify(id_notificacion, mBuilder.build());
     }
+
 }

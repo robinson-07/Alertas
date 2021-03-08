@@ -1,4 +1,4 @@
-package com.alertas;
+package com.alertas.modelo;
 
 import android.app.NotificationManager;
 import android.app.Service;
@@ -8,10 +8,11 @@ import android.content.SharedPreferences;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.IBinder;
 
-public class Ringtone_service extends Service {
+public class RingtoneService extends Service  {
     private CountDownTimer count;
     private int n;
     private Ringtone ringtone;
@@ -21,11 +22,9 @@ public class Ringtone_service extends Service {
     }
 
     public int onStartCommand (Intent intent, int flags, int startId) {
-        if(intent.hasExtra("numero_timbres")){
-            int numero_timbres  = (int) intent.getExtras().get("numero_timbres");
-            String notificacion = (String) intent.getExtras().get("notificacion");
-            play_tone(numero_timbres, notificacion);
-        }
+        Bundle bundle = intent.getBundleExtra("bundle");
+        Alerta alerta = (Alerta)bundle.getSerializable("alerta");
+        play_tone(alerta);
         return Service.START_NOT_STICKY ;
     }
 
@@ -35,7 +34,7 @@ public class Ringtone_service extends Service {
         super.onDestroy();
     }
 
-    private void play_tone(final int numero_timbres, final String notificacion){
+    private void play_tone(final Alerta alerta){
         SharedPreferences pref_rington = this.getSharedPreferences("rington",   Context.MODE_PRIVATE);
         String rington_uri = pref_rington.getString("tono_uri", "");
         Uri uri_tono = Uri.parse(rington_uri);
@@ -45,9 +44,9 @@ public class Ringtone_service extends Service {
         count = new CountDownTimer(100000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                if(n >= numero_timbres && !ringtone.isPlaying()){
+                if(n >= alerta.getTimbres() && !ringtone.isPlaying()){
                     if(count != null) count.cancel();
-                    if(!notificacion.equals("true")){
+                    if(!alerta.isNotificacion()){
                         NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
                         notificationManager.cancel(1);
                     }
