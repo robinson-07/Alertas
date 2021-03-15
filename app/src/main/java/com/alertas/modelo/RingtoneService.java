@@ -39,8 +39,16 @@ public class RingtoneService extends Service  {
         String rington_uri = pref_rington.getString("tono_uri", "");
         Uri uri_tono = Uri.parse(rington_uri);
 
-        ringtone = RingtoneManager.getRingtone(this, uri_tono);
         n = 0;
+        if(rington_uri.equals("Ninguno") || alerta.getTimbres() < 1) {
+            ringtone = null;
+            n = -1;
+        }else if(rington_uri.equals("")) {
+            ringtone = RingtoneManager.getRingtone(this,
+                    RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_NOTIFICATION));
+        }else {
+            ringtone = RingtoneManager.getRingtone(this, uri_tono);
+        }
         count = new CountDownTimer(100000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
@@ -51,14 +59,20 @@ public class RingtoneService extends Service  {
                         notificationManager.cancel(1);
                     }
                     stopSelf();
-                }else if(!ringtone.isPlaying()){
+                }else if(ringtone!=null && !ringtone.isPlaying()){
                     ringtone.play();
                     n++;
                 }
             }
 
             @Override
-            public void onFinish() {}
+            public void onFinish() {
+                if(!alerta.isNotificacion()){
+                    NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+                    notificationManager.cancel(1);
+                }
+                stopSelf();
+            }
         }.start();
     }
 }

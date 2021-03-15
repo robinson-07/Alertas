@@ -1,10 +1,9 @@
 package com.alertas;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
-import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.support.v7.app.ActionBar;
@@ -38,18 +37,9 @@ import java.util.ArrayList;
 
 public class Principal extends AppCompatActivity {
 
-    //--------------- lista tonos ----------------
-    private ArrayList<String> tono = new ArrayList<>();
-    private ArrayList<String> uri = new ArrayList<>();
-    private ArrayList<String> RingtonSeleccionado = new ArrayList<>();
-
-    private int indice_list_rington = 0;
-    private MediaPlayer mp;
-    //-------------------------------------------
     private static Principal instance;
     private AlertAdapter whatever;
-    private Ringtons_adapter whatever_tono;
-    private ListView listViewAlerts, listView_tono;
+    private ListView listViewAlerts;
     private ArrayList<Alerta> listAlerts = new ArrayList<>();
 
     @Override
@@ -61,12 +51,6 @@ public class Principal extends AppCompatActivity {
         setTitle(" ");
 
         stopService(new Intent(this, RingtoneService.class));
-        SharedPreferences pref_rington = getSharedPreferences("rington", Context.MODE_PRIVATE);
-        String rington_uri = pref_rington.getString("tono_uri", "");
-        if (rington_uri.equals("")) {
-            Uri tono_default = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM);
-            pref_rington.edit().putString("tono_uri", tono_default.toString()).apply();
-        }
 
         Intent broadcastIntent = new Intent();
         broadcastIntent.setAction("com.alertas.ESTABLECER_ALERTA");
@@ -112,7 +96,7 @@ public class Principal extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.tono_alertas:
-                dialogo_ringtons();
+                configurarTono();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -335,97 +319,39 @@ public class Principal extends AppCompatActivity {
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
+
     //------------------------------  tonos de Alerta --------------------------------
-    private void dialogo_ringtons() {
-        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LayoutInflater inflater = this.getLayoutInflater();
-        final View Vi2 = inflater.inflate(R.layout.dialogo_ringtons, null);
-        builder.setView(Vi2);
-        final AlertDialog alertRingtons = builder.create();
-        listaRingtons(Vi2);
-        Button Aceptar = Vi2.findViewById(R.id.dialogo_ringtons_aceptar);
-        Button Cancelar = Vi2.findViewById(R.id.dialogo_ringtons_cancelar);
-
-        clickRington();
-        Aceptar.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View VV) {
-                        SharedPreferences pref_rington = getSharedPreferences("rington", Context.MODE_PRIVATE);
-                        pref_rington.edit().putString("tono_uri", uri.get(indice_list_rington)).apply();
-                        if (mp != null) mp.stop();
-                        alertRingtons.cancel();
-                    }
-                }
-        );
-        Cancelar.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View Vi) {
-                        if (mp != null) mp.stop();
-                        alertRingtons.cancel();
-                    }
-                }
-        );
-        alertRingtons.show();
-        alertRingtons.setCancelable(true);
-    }
-
-    private void listaRingtons(View Vi2) {
-        tono.clear();
-        uri.clear();
-        RingtonSeleccionado.clear();
-
+    public void configurarTono(){
         SharedPreferences pref_rington = getSharedPreferences("rington", Context.MODE_PRIVATE);
-        String rington_uri = pref_rington.getString("tono_uri", "");
+        String ringtonUri = pref_rington.getString("tono_uri", "");
 
-        RingtoneManager manager = new RingtoneManager(this);
-        manager.setType(RingtoneManager.TYPE_ALL);
-        Cursor cursor = manager.getCursor();
-
-        int i = 0;
-        while (cursor.moveToNext()) {
-            String tonoTitle = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX);
-            String tonoUri = cursor.getString(RingtoneManager.URI_COLUMN_INDEX) + "/" + cursor.getString(RingtoneManager.ID_COLUMN_INDEX);
-
-            if (tonoUri.equals(rington_uri)) {
-                RingtonSeleccionado.add(i, "si");
-                indice_list_rington = i;
-            } else RingtonSeleccionado.add(i, "no");
-
-            tono.add(i, tonoTitle);
-            uri.add(i, tonoUri);
-            i++;
+        Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION);
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Tono de alertas");
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+        if (ringtonUri.equals("")) {
+            ringtonUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_NOTIFICATION).toString();
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(ringtonUri));
+        }else if(ringtonUri.equals("Ninguno")){
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
+        }else{
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(ringtonUri));
         }
-        whatever_tono = new Ringtons_adapter(Principal.this, tono, uri, RingtonSeleccionado);
-        listView_tono = Vi2.findViewById(R.id.lista_ringtons);
-        listView_tono.setAdapter(whatever_tono);
+        startActivityForResult(intent, 5);
     }
 
-    private void clickRington() {
-        listView_tono.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                try {
-                    if (mp != null) mp.stop();
-                    RingtonSeleccionado.set(indice_list_rington, "no");
-                    RingtonSeleccionado.set(position, "si");
-                    Uri uri_tono = Uri.parse(uri.get(position));
-                    mp = MediaPlayer.create(getApplicationContext(), uri_tono);
-                    mp.setLooping(false);
-                    mp.start();
-                    mp.setOnSeekCompleteListener(new MediaPlayer.OnSeekCompleteListener() {
-                        public void onSeekComplete(MediaPlayer mp) {
-                            mp.stop();
-                        }
-                    });
-                } catch (Exception e) {
-                }
-
-                indice_list_rington = position;
-                if (whatever_tono != null) whatever_tono.notifyDataSetChanged();
+    @Override
+    protected void onActivityResult(final int requestCode, final int resultCode, final Intent intent){
+        if (resultCode == Activity.RESULT_OK && requestCode == 5){
+            Uri uri = intent.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+            if (uri != null ){
+                SharedPreferences pref_rington = getSharedPreferences("rington", Context.MODE_PRIVATE);
+                pref_rington.edit().putString("tono_uri", uri.toString()).apply();
+            }else{
+                SharedPreferences pref_rington = getSharedPreferences("rington", Context.MODE_PRIVATE);
+                pref_rington.edit().putString("tono_uri", "Ninguno").apply();
             }
-        });
+        }
     }
 
 }

@@ -268,7 +268,7 @@
                         android:id="@+id/dialogo_num_timbres"
                         android:layout_width="40dp"
                         android:layout_height="wrap_content"
-                        android:digits="123456789"
+                        android:digits="0123456789"
                         android:ems="10"
                         android:fontFamily="sans-serif-light"
                         android:gravity="center"
